@@ -1,0 +1,7 @@
+nara_image_tool.add:
+  path: '/admin/structure/nara_image_tool/add'
+  defaults:
+    _form: '\Drupal\nara_image_tool\Form\NaraImageAdd'
+    _title: 'example'
+  requirements:
+    _permission: 'administer site configuration'

@@ -1,0 +1,6 @@
+name: NARA Image Tool
+description: Access the NARA API to create Drupal entities.
+package: Custom
+
+type: module
+core: 8.x

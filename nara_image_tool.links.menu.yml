@@ -1,0 +1,6 @@
+nara_image_tool.admin:
+  title: 'Media from Archive API'
+  description: 'Add Media entity from Archive Catalog api'
+  parent: system.admin_config_media
+  route_name: nara_image_tool.add
+  weight: 100
