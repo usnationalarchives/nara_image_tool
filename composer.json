@@ -1,0 +1,11 @@
+{
+  "name": "drupal/nara_image_tool",
+  "description": "NARA Image Tool",
+  "type": "drupal-module",
+  "license": "GPL-2.0+",
+  "minimum-stability": "dev",
+  "require": {
+    "drupal/crop": "^1.4",
+    "drupal/image_widget_crop": "^2.1"
+  }
+}

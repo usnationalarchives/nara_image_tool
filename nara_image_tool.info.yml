@@ -4,3 +4,6 @@ package: Custom
 
 type: module
 core: 8.x
+
+dependencies:
+  - drupal:media
