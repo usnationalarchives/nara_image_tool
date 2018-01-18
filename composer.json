@@ -2,6 +2,14 @@
   "name": "agencychief/nara_image_tool",
   "description": "NARA Image Tool",
   "type": "drupal-module",
+  "homepage": "https://github.com/agencychief/nara_image_tool",
+  "authors": [
+    {
+      "name": "Chief",
+      "homepage": "https://agencychief.com/",
+      "role": "Developer"
+    }
+  ],
   "license": "GPL-2.0+",
   "minimum-stability": "dev",
   "require": {
