@@ -2,6 +2,6 @@ nara_image_tool.add:
   path: '/admin/structure/nara_image_tool/add'
   defaults:
     _form: '\Drupal\nara_image_tool\Form\NaraImageAdd'
-    _title: 'example'
+    _title: 'NARA Catalog Search'
   requirements:
     _permission: 'administer site configuration'
