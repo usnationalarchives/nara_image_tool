@@ -5,3 +5,10 @@ nara_image_tool.add:
     _title: 'NARA Catalog Search'
   requirements:
     _permission: 'administer site configuration'
+nara_image_tool.admin_setttings_form:
+  path: '/admin/config/development/nara_image_tool'
+  defaults:
+    _form: '\Drupal\nara_image_tool\Form\NaraImageAddConfig'
+    _title: 'NARA Captcha'
+  requirements:
+    _permission: 'administer nara_image_tool'
