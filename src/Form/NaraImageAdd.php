@@ -33,9 +33,9 @@ class NaraImageAdd extends FormBase {
     $nara_items = $form_state->get('nara_items');
 
     $form['naid'] = [
-      '#type' => 'number',
-      '#title' => $this->t('ID of Item'),
-      '#description' => $this->t('Must be a number'),
+      '#type' => 'textfield',
+      '#title' => $this->t('IDs of Item'),
+      '#description' => $this->t('Enter a single id or a comma separated list.'),
       '#required' => TRUE,
     ];
 
@@ -55,21 +55,29 @@ class NaraImageAdd extends FormBase {
       '#suffix' => '</div>',
       '#tree' => TRUE,
     ];
+    foreach ($form_state->get('nara_items') as $item) {
+      $form['media_gallery']['naid_tabs'] = [
+        '#type' => 'vertical_tabs',
+      ];
 
-    for ($i = 0; $i < count($form_state->get('nara_items')); $i++) {
-      $item = $form_state->get('nara_items')[$i];
-      $form['media_gallery'][$i] = [
+      $form['media_gallery'][$item->{'@id'}] = [
+        '#type' => 'details',
+        '#title' => $item->{'@id'},
+        '#group' => 'naid_tabs',
+      ];
+
+      $form['media_gallery'][$item->{'@id'}]['set'] = [
         '#type' => 'fieldset',
         '#title' => $item->file->{'@name'},
       ];
 
-      $form['media_gallery'][$i]['addMedia'] = [
+      $form['media_gallery'][$item->{'@id'}]['set']['addMedia'] = [
         '#type' => 'checkbox',
         '#title' => '<img src="' . $item->thumbnail->{'@url'} . '" alt="' . $item->file->{'@name'} . ' thumbnail" />',
         '#suffix' => '<a href="' . $item->file->{'@url'} . '" target="_blank" rel="noopener noreferrer">Open image in new window</a>',
       ];
 
-      $form['media_gallery'][$i]['media_title'] = [
+      $form['media_gallery'][$item->{'@id'}]['set']['media_title'] = [
         '#type' => 'textfield',
         '#title' => $this->t('Media Title'),
         '#default_value' => $item->file->{'@name'},
@@ -77,14 +85,14 @@ class NaraImageAdd extends FormBase {
         '#required' => TRUE,
       ];
 
-      $form['media_gallery'][$i]['image_title'] = [
+      $form['media_gallery'][$item->{'@id'}]['set']['image_title'] = [
         '#type' => 'textfield',
         '#title' => $this->t('Image Title'),
         '#description' => $this->t('Only needed if different than Media title. This appears when hovering over an image in the browser.'),
         '#required' => FALSE,
       ];
 
-      $form['media_gallery'][$i]['alt_text'] = [
+      $form['media_gallery'][$item->{'@id'}]['set']['alt_text'] = [
         '#type' => 'textfield',
         '#title' => $this->t('Image Alt Text'),
         '#description' => $this->t('Alt image required for accessibility.'),
@@ -111,7 +119,20 @@ class NaraImageAdd extends FormBase {
    * {@inheritdoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
-    return NULL;
+    if (isset($form['media_gallery'][0])) {
+      $item_selected = FALSE;
+      // For each possible item created,
+      // check through each and see if at least one is checked
+      // 
+      // ksm($form['media_gallery']);.
+    }
+
+    if (isset($form['naid'])) {
+      $naidValid = self::checkSearchQuery($form_state->getValue('naid'));
+      if ($naidValid) {
+        $form_state->setErrorByName('IDs of Items', t('There is something wrong with the input. Please make sure it is a comma separated list of ids.'));
+      }
+    }
   }
 
   /**
@@ -124,27 +145,48 @@ class NaraImageAdd extends FormBase {
   /**
    * {@inheritdoc}
    */
+  public function checkSearchQuery($value) {
+    $_errors = [];
+    $_ids = explode(',', $value);
+    foreach ($_ids as $_id) {
+      if (!is_numeric($_id)) {
+        $_errors[] = $_id;
+      }
+    }
+
+    if (!empty($_errors)) {
+      return TRUE;
+    }
+
+    return FALSE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function getArchiveItems(array &$form, FormStateInterface $form_state) {
     $client = \Drupal::httpClient();
     $naId = $form_state->getValue('naid');
     $_nara_items = $form_state->get('nara_items');
     $res = json_decode($client->request('GET', 'https://catalog.archives.gov/api/v1?naIds=' . $naId)->getBody()->getContents());
     $nara_object;
-    if ($res->opaResponse->results->result[0]->objects->object == NULL) {
-      drupal_set_message(t('Incorrect ID or no object found at ID.'), 'error', TRUE);
+
+    if (!$res->opaResponse->results->result) {
+      drupal_set_message(t('No results for for your current query.'), 'error', TRUE);
       return $form['media_gallery'];
     }
-    else {
-      $nara_object = $res->opaResponse->results->result[0]->objects->object;
+    foreach ($res->opaResponse->results->result as $result) {
+      $nara_object = $result->objects->object;
+      $object_naid = $result->naId;
       if (is_array($nara_object)) {
         foreach ($nara_object as $key => $value) {
           if ($value->file->{'@mime'} === 'image/jpeg') {
-            $_nara_items[] = $value;
+            $_nara_items[$object_naid] = $value;
           }
         }
       }
       else {
-        $_nara_items[] = $nara_object;
+        $_nara_items[$object_naid] = $nara_object;
       }
     }
     $form_state->set('nara_items', $_nara_items);
