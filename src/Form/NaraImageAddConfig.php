@@ -66,6 +66,12 @@ class NaraImageAddConfig extends ConfigFormBase {
         '#title' => $fieldData['label'],
         '#value' => $fieldData['label'],
       ];
+
+      $form['fields'][$fieldName]['field_type'] = [
+        '#type' => 'hidden',
+        '#title' => $fieldData['field_type'],
+        '#value' => $fieldData['field_type'],
+      ];
     }
 
     return parent::buildForm($form, $form_state);
@@ -87,6 +93,7 @@ class NaraImageAddConfig extends ConfigFormBase {
         if (!array_key_exists($entityField, $_fields)) {
           $_fields[$entityField]['added'] = 0;
           $_fields[$entityField]['label'] = $entityFieldData->getLabel();
+          $_fields[$entityField]['field_type'] = $entityFieldData->getType();
         }
       }
     }
