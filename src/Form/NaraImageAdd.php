@@ -4,7 +4,6 @@ namespace Drupal\nara_image_tool\Form;
 
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\StringTranslation\TranslationInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\media\Entity\Media;
 use Drupal\Core\Config\Config;
@@ -34,6 +33,8 @@ class NaraImageAdd extends FormBase {
     $nara_items = $form_state->get('nara_items');
     $nara_image_tool_config = \Drupal::config('nara_image_tool.settings');
     $media_fields = $nara_image_tool_config->get('fields');
+    $form_state->set('default_link_field', $nara_image_tool_config->get('default_link_field'));
+    $form_state->set('default_link_title', $nara_image_tool_config->get('default_link_title'));
 
     $form['naid'] = [
       '#type' => 'textfield',
@@ -58,12 +59,13 @@ class NaraImageAdd extends FormBase {
       '#suffix' => '</div>',
       '#tree' => TRUE,
     ];
-    if(isset($nara_items)) {
+
+    if (isset($nara_items)) {
       foreach ($nara_items as $naId => $item) {
         $form['media_gallery']['naid_tabs'] = [
           '#type' => 'vertical_tabs',
         ];
-  
+
         /*
          * Create Item tab and name.
          */
@@ -72,12 +74,12 @@ class NaraImageAdd extends FormBase {
           '#title' => $naId,
           '#group' => 'naid_tabs',
         ];
-  
+
         $form['media_gallery'][$naId][$item->{'@id'}] = [
           '#type' => 'fieldset',
           '#title' => $item->file->{'@name'},
         ];
-  
+
         /*
          * Create Item Checkbox and thumbnail.
          */
@@ -86,7 +88,7 @@ class NaraImageAdd extends FormBase {
           '#title' => '<img src="' . $item->thumbnail->{'@url'} . '" alt="' . $item->file->{'@name'} . ' thumbnail" />',
           '#suffix' => '<a href="' . $item->file->{'@url'} . '" target="_blank" rel="noopener noreferrer">Open image in new window</a>',
         ];
-  
+
         /*
          * Required Fields of Media name, Image Name, Alt Text
          */
@@ -97,30 +99,54 @@ class NaraImageAdd extends FormBase {
           '#description' => $this->t('Appears when searching for Media entities in Drupal.'),
           '#required' => TRUE,
         ];
-  
+
         $form['media_gallery'][$naId][$item->{'@id'}]['image_title'] = [
           '#type' => 'textfield',
           '#title' => $this->t('Image Title'),
           '#description' => $this->t('Only needed if different than Media title. This appears when hovering over an image in the browser.'),
           '#required' => FALSE,
         ];
-  
+
         $form['media_gallery'][$naId][$item->{'@id'}]['alt_text'] = [
           '#type' => 'textfield',
           '#title' => $this->t('Image Alt Text'),
           '#description' => $this->t('Alt image required for accessibility.'),
           '#required' => FALSE,
         ];
-  
+
+        if ($form_state->get('default_link_field')) {
+          $form['media_gallery'][$naId][$item->{'@id'}]['default_link_title'] = [
+            '#type' => 'textfield',
+            '#title' => $this->t('Link Back to Catalog Title'),
+            '#default_value' => $form_state->get('default_link_title'),
+            '#description' => $this->t('Alt image required for accessibility.'),
+            '#required' => FALSE,
+          ];
+          $form['media_gallery'][$naId][$item->{'@id'}]['default_link_uri'] = [
+            '#type' => 'url',
+            '#default_value' => 'https://catalog.archives.gov/id/' . $naId,
+            '#title' => 'Link back to Catalog URL',
+            '#required' => FALSE,
+          ];
+        }
+
         /*
          * Add Custom fields from Config Settings
          */
         foreach ($media_fields as $media_field => $media_field_data) {
-          if ($media_field_data['added'] === 1) {
+          if ($media_field_data['added'] === 1 && $media_field != $form_state->get('default_link_field')) {
             switch ($media_field_data['field_type']) {
               case 'string':
                 $form['media_gallery'][$naId][$item->{'@id'}]['non_core'][$media_field] = [
                   '#type' => 'textfield',
+                  '#title' => $media_field_data['label'],
+                  '#required' => FALSE,
+                ];
+                break;
+
+              case 'link':
+                $form['media_gallery'][$naId][$item->{'@id'}]['non_core'][$media_field] = [
+                  '#type' => 'url',
                   '#title' => $media_field_data['label'],
                   '#required' => FALSE,
                 ];
@@ -129,7 +155,6 @@ class NaraImageAdd extends FormBase {
         }
       }
     }
-    
 
     if (count($form_state->get('nara_items')) > 0) {
       $form['media_gallery']['actions'] = [
@@ -152,8 +177,7 @@ class NaraImageAdd extends FormBase {
     if (isset($form['media_gallery'][0])) {
       $item_selected = FALSE;
       // For each possible item created,
-      // check through each and see if at least one is checked
-      // 
+      // check through each and see if at least one is checked.
     }
 
     if (isset($form['naid'])) {
@@ -230,21 +254,35 @@ class NaraImageAdd extends FormBase {
     $items = $form_state->get('nara_items');
 
     foreach ($items as $item => $itemData) {
-      $non_core_fields = $form_state->getValue(['media_gallery', $item, $itemData->{'@id'}, 'non_core']);
-      if ($form_state->getValue(['media_gallery', $item, $itemData->{'@id'}, 'addMedia']) == 1) {
+      $non_core_fields = $form_state->getValue(
+          ['media_gallery', $item, $itemData->{'@id'}, 'non_core']);
+      if ($form_state->getValue(
+          ['media_gallery', $item, $itemData->{'@id'}, 'addMedia']) == 1) {
         $new_media++;
         $data = system_retrieve_file($itemData->file->{'@url'}, NULL, TRUE, FILE_EXISTS_REPLACE);
         $mediaData = [
           'bundle' => 'image',
           'uid' => \Drupal::currentUser()->id(),
           'langcode' => \Drupal::languageManager()->getDefaultLanguage()->getId(),
-          'name' => $form_state->getValue(['media_gallery', $item, $itemData->{'@id'}, 'media_title']),
+          'name' => $form_state->getValue(
+            ['media_gallery', $item, $itemData->{'@id'}, 'media_title']),
           'field_media_image' => [
             'target_id' => $data->id(),
-            'alt' => $form_state->getValue(['media_gallery', $item, $itemData->{'@id'}, 'alt_text']),
-            'title' => ($form_state->getValue(['media_gallery', $item, $itemData->{'@id'}, 'image_title'])) ?: $form_state->getValue(['media_gallery', (string) $i, 'media_title']),
+            'alt' => $form_state->getValue(
+              ['media_gallery', $item, $itemData->{'@id'}, 'alt_text']),
+            'title' => ($form_state->getValue(
+                ['media_gallery', $item, $itemData->{'@id'}, 'image_title'])) ?: $form_state->getValue(
+                    ['media_gallery', $item, $itemData->{'@id'}, 'media_title']),
           ],
         ];
+        if ($form_state->get('default_link_field')) {
+          $mediaData[$form_state->get('default_link_field')] = [
+            'uri' => $form_state->getValue(
+                ['media_gallery', $item, $itemData->{'@id'}, 'default_link_uri']),
+            'title' => $form_state->getValue(
+                ['media_gallery', $item, $itemData->{'@id'}, 'default_link_title']),
+          ];
+        }
         foreach ($non_core_fields as $key => $value) {
           $mediaData[$key] = $value;
         }

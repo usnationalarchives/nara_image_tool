@@ -32,6 +32,7 @@ class NaraImageAddConfig extends ConfigFormBase {
     $form_state->set('image_tool_config', $config);
     $currentFields = $form_state->get('image_tool_config')->get('fields');
     $formFields = self::getFields('media', 'image', $currentFields);
+    $linkOptions = [];
 
     $form['general'] = [
       '#type' => 'details',
@@ -55,6 +56,10 @@ class NaraImageAddConfig extends ConfigFormBase {
     ];
 
     foreach ($formFields as $fieldName => $fieldData) {
+      if ($fieldData['field_type'] == 'link') {
+        $linkOptions[$fieldName] = $fieldData['label'];
+      }
+
       $form['fields'][$fieldName]['added'] = [
         '#type' => 'checkbox',
         '#title' => $fieldData['label'],
@@ -71,6 +76,26 @@ class NaraImageAddConfig extends ConfigFormBase {
         '#type' => 'hidden',
         '#title' => $fieldData['field_type'],
         '#value' => $fieldData['field_type'],
+      ];
+    }
+
+    if (isset($linkOptions)) {
+      $form['default_link'] = [
+        '#type' => 'details',
+        '#title' => $this->t('Default Link for Back to Catalog'),
+        '#open' => TRUE,
+        '#tree' => TRUE,
+      ];
+      $form['default_link']['title'] = [
+        '#type' => 'textfield',
+        '#default_value' => $config->get('default_link_title'),
+        '#title' => $this->t('Title for Link to Archives Field'),
+      ];
+      $form['default_link']['field'] = [
+        '#type' => 'radios',
+        '#default_value' => $config->get('default_link_field'),
+        '#title' => $this->t('Default Link field to Archives'),
+        '#options' => $linkOptions,
       ];
     }
 
@@ -109,6 +134,8 @@ class NaraImageAddConfig extends ConfigFormBase {
     $config
       ->set('api_url', $form_state->getValue('api_url'))
       ->set('fields', $form_state->getValue('fields'))
+      ->set('default_link_title', $form_state->getValue(['default_link', 'title']))
+      ->set('default_link_field', $form_state->getValue(['default_link', 'field']))
       ->save();
 
     parent::submitForm($form, $form_state);
