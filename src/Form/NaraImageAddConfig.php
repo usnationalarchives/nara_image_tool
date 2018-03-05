@@ -34,6 +34,13 @@ class NaraImageAddConfig extends ConfigFormBase {
     $formFields = self::getFields('media', 'image', $currentFields);
     $linkOptions = [];
 
+    $apiFieldOptions = [
+      '' => 'Do not connect',
+      'naId' => 'Nara ID',
+      'title' => 'Title',
+      'scopeAndContentNote' => 'Scope and Content Note',
+    ];
+
     $form['general'] = [
       '#type' => 'details',
       '#title' => $this->t('General Settings'),
@@ -64,6 +71,14 @@ class NaraImageAddConfig extends ConfigFormBase {
         '#type' => 'checkbox',
         '#title' => $fieldData['label'],
         '#default_value' => $fieldData['added'],
+      ];
+
+      $form['fields'][$fieldName]['api_field_name'] = [
+        '#type' => 'select',
+        '#title' => $this
+          ->t('Select API field to connect'),
+        '#default_value' => $fieldData['api_field_name'],
+        '#options' => $apiFieldOptions,
       ];
 
       $form['fields'][$fieldName]['label'] = [

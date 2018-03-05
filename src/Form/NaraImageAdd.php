@@ -140,6 +140,7 @@ class NaraImageAdd extends FormBase {
                 $form['media_gallery'][$naId][$item->{'@id'}]['non_core'][$media_field] = [
                   '#type' => 'textfield',
                   '#title' => $media_field_data['label'],
+                  '#default_value' => $item->description->{$media_field_data['api_field_name']},
                   '#required' => FALSE,
                 ];
                 break;
@@ -231,6 +232,7 @@ class NaraImageAdd extends FormBase {
     foreach ($res->opaResponse->results->result as $result) {
       $nara_object = $result->objects->object;
       $object_naid = $result->naId;
+      $nara_decription = $result;
       if (is_array($nara_object)) {
         foreach ($nara_object as $key => $value) {
           if ($value->file->{'@mime'} === 'image/jpeg') {
@@ -241,6 +243,7 @@ class NaraImageAdd extends FormBase {
       else {
         $_nara_items[$object_naid] = $nara_object;
       }
+      $_nara_items[$object_naid]->description = $result->description->item;
     }
     $form_state->set('nara_items', $_nara_items);
     $form_state->setRebuild();
