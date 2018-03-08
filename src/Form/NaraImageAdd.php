@@ -7,6 +7,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\media\Entity\Media;
 use Drupal\Core\Config\Config;
+use Drupal\Core\Url;
 
 /**
  * Build the simple form.
@@ -35,6 +36,7 @@ class NaraImageAdd extends FormBase {
     $media_fields = $nara_image_tool_config->get('fields');
     $form_state->set('default_link_field', $nara_image_tool_config->get('default_link_field'));
     $form_state->set('default_link_title', $nara_image_tool_config->get('default_link_title'));
+//    $blah = \Drupal::entityTypeManager()->getStorage('nara_object')->load(1)->getIterator()['version']->getIterator()[0]->getValue();
 
     $form['naid'] = [
       '#type' => 'textfield',
@@ -140,7 +142,7 @@ class NaraImageAdd extends FormBase {
                 $form['media_gallery'][$naId][$item->{'@id'}]['non_core'][$media_field] = [
                   '#type' => 'textfield',
                   '#title' => $media_field_data['label'],
-                  '#default_value' => $item->description->{$media_field_data['api_field_name']},
+                  '#default_value' => $item->description->{$media_field_data['api_field_name']} ?: '',
                   '#required' => FALSE,
                 ];
                 break;
@@ -237,11 +239,13 @@ class NaraImageAdd extends FormBase {
         foreach ($nara_object as $key => $value) {
           if ($value->file->{'@mime'} === 'image/jpeg') {
             $_nara_items[$object_naid] = $value;
+            $_nara_items[$object_naid]->{'version'} = $result->objects->{'@version'};
           }
         }
       }
       else {
         $_nara_items[$object_naid] = $nara_object;
+        $_nara_items[$object_naid]->{'version'} = $result->objects->{'@version'};
       }
       $_nara_items[$object_naid]->description = $result->description->item;
     }
@@ -253,47 +257,83 @@ class NaraImageAdd extends FormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-    $new_media = 0;
     $items = $form_state->get('nara_items');
-
+    $mediaCount = 0;
     foreach ($items as $item => $itemData) {
-      $non_core_fields = $form_state->getValue(
-          ['media_gallery', $item, $itemData->{'@id'}, 'non_core']);
-      if ($form_state->getValue(
-          ['media_gallery', $item, $itemData->{'@id'}, 'addMedia']) == 1) {
-        $new_media++;
-        $data = system_retrieve_file($itemData->file->{'@url'}, NULL, TRUE, FILE_EXISTS_REPLACE);
-        $mediaData = [
-          'bundle' => 'image',
-          'uid' => \Drupal::currentUser()->id(),
-          'langcode' => \Drupal::languageManager()->getDefaultLanguage()->getId(),
-          'name' => $form_state->getValue(
-            ['media_gallery', $item, $itemData->{'@id'}, 'media_title']),
-          'field_media_image' => [
-            'target_id' => $data->id(),
-            'alt' => $form_state->getValue(
-              ['media_gallery', $item, $itemData->{'@id'}, 'alt_text']),
-            'title' => ($form_state->getValue(
-                ['media_gallery', $item, $itemData->{'@id'}, 'image_title'])) ?: $form_state->getValue(
-                    ['media_gallery', $item, $itemData->{'@id'}, 'media_title']),
-          ],
-        ];
-        if ($form_state->get('default_link_field')) {
-          $mediaData[$form_state->get('default_link_field')] = [
-            'uri' => $form_state->getValue(
-                ['media_gallery', $item, $itemData->{'@id'}, 'default_link_uri']),
-            'title' => $form_state->getValue(
-                ['media_gallery', $item, $itemData->{'@id'}, 'default_link_title']),
-          ];
-        }
-        foreach ($non_core_fields as $key => $value) {
-          $mediaData[$key] = $value;
-        }
-        $image_media = Media::create($mediaData);
-        $image_media->save();
+      if (\Drupal::entityTypeManager()->getStorage('nara_object')->load($itemData->{'@id'}) === NULL) {
+        self::createImageMedia($item, $itemData, $form_state);
+        $mediaCount++;
       }
+      else {
+        $media_id = \Drupal::entityTypeManager()->getStorage('nara_object')->load($itemData->{'@id'})->getIterator()['media_id']->getIterator()[0]->getValue()['target_id'];
+        $media_link = '<a href="/media/' . $media_id . '/edit">/media/' . $media_id . '/edit</a>';
+        $link = Url::fromRoute('entity.media.canonical', ['media' => $media_id])->toString();
+        drupal_set_message(t('NARA Object @objectId already imported. <a href="@link" target="_blank">Click here to view in new tab.</a>', ['@link' => $link, '@objectId' => $itemData->{'@id'}]), 'warning');
+      }
+
     }
-    drupal_set_message(t('@media new Media added.', ['@media' => $new_media]), 'status');
+    drupal_set_message(t('@media new Media added.', ['@media' => $mediaCount]), 'status');
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  private function createImageMedia($item, $itemData, $form_state) {
+
+    $non_core_fields = $form_state
+      ->getValue(['media_gallery', $item, $itemData->{'@id'}, 'non_core']);
+    if ($form_state->getValue(['media_gallery', $item, $itemData->{'@id'}, 'addMedia']) == 1) {
+      // Create the file in the file system.
+      $data = system_retrieve_file($itemData->file->{'@url'}, NULL, TRUE, FILE_EXISTS_REPLACE);
+
+      // Create the Media Image entity.
+      $mediaData = [
+        'bundle' => 'image',
+        'uid' => \Drupal::currentUser()->id(),
+        'langcode' => \Drupal::languageManager()->getDefaultLanguage()->getId(),
+        'name' => $form_state->getValue(
+          ['media_gallery', $item, $itemData->{'@id'}, 'media_title']),
+        'field_media_image' => [
+          'target_id' => $data->id(),
+          'alt' => $form_state
+            ->getValue(['media_gallery', $item, $itemData->{'@id'}, 'alt_text']),
+          'title' => ($form_state
+            ->getValue(['media_gallery', $item, $itemData->{'@id'}, 'image_title'])) ?:
+          $form_state
+            ->getValue(['media_gallery', $item, $itemData->{'@id'}, 'media_title']),
+        ],
+      ];
+      if ($form_state->get('default_link_field')) {
+        $mediaData[$form_state->get('default_link_field')] = [
+          'uri' => $form_state
+            ->getValue(['media_gallery', $item, $itemData->{'@id'}, 'default_link_uri']),
+          'title' => $form_state
+            ->getValue(['media_gallery', $item, $itemData->{'@id'}, 'default_link_title']),
+        ];
+      }
+      foreach ($non_core_fields as $key => $value) {
+        $mediaData[$key] = $value;
+      }
+      $image_media = Media::create($mediaData);
+      $image_media->save();
+      self::createNaraObject($item, $itemData, $data->id(), $image_media->id());
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  private function createNaraObject($item, $itemData, $fid, $mid) {
+    $naraObject = [
+      'id' => $itemData->{'@id'},
+      'version' => $itemData->{'version'},
+      'naid' => $item,
+      'file_id' => $fid,
+      'media_id' => $mid,
+    ];
+
+    $naraObject = \Drupal::entityTypeManager()->getStorage('nara_object')->create($naraObject);
+    $naraObject->save();
   }
 
 }
