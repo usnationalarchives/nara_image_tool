@@ -36,45 +36,50 @@ class NaraImageAdd extends FormBase {
     $media_fields = $nara_image_tool_config->get('fields');
     $form_state->set('default_link_field', $nara_image_tool_config->get('default_link_field'));
     $form_state->set('default_link_title', $nara_image_tool_config->get('default_link_title'));
-//    $blah = \Drupal::entityTypeManager()->getStorage('nara_object')->load(1)->getIterator()['version']->getIterator()[0]->getValue();
 
-    $form['naid'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('IDs of Item'),
-      '#description' => $this->t('Enter a single id or a comma separated list.'),
-      '#required' => TRUE,
-    ];
+    if (!isset($nara_items)) {
+      $form['naid'] = [
+        '#type' => 'textfield',
+        '#title' => $this->t('IDs of Item'),
+        '#description' => $this->t('Enter a single id or a comma separated list.'),
+        '#required' => TRUE,
+      ];
 
-    $form['submit'] = [
-      '#type' => 'submit',
-      '#submit' => ['::getArchiveItems'],
-      '#ajax' => [
-        'callback' => '::returnArchiveItems',
-        'wrapper' => 'media-gallery-wrapper',
-      ],
-      '#value' => $this->t('Find Archive Item'),
-    ];
-
+      $form['submit'] = [
+        '#type' => 'submit',
+        '#submit' => ['::getArchiveItems'],
+        '#ajax' => [
+          'callback' => '::returnArchiveItems',
+          'wrapper' => 'media-gallery-wrapper',
+        ],
+        '#value' => $this->t('Find Archive Item'),
+      ];
+    }
     $form['media_gallery'] = [
       '#type' => 'container',
       '#prefix' => '<div id="media-gallery-wrapper">',
       '#suffix' => '</div>',
       '#tree' => TRUE,
     ];
-
+    if (!isset($nara_items)) {
+      $form['media_gallery']['default_text'] = [
+        '#type' => 'inline_template',
+        '#template' => '<p>Find items above to begin.</p>',
+      ];
+    }
     if (isset($nara_items)) {
+      $form['media_gallery']['naid_tabs'] = [
+        '#type' => 'vertical_tabs',
+      ];
       foreach ($nara_items as $naId => $item) {
-        $form['media_gallery']['naid_tabs'] = [
-          '#type' => 'vertical_tabs',
-        ];
-
         /*
          * Create Item tab and name.
          */
         $form['media_gallery'][$naId] = [
           '#type' => 'details',
-          '#title' => $naId,
+          '#title' => $item->description->title . ' (' . $naId . ')',
           '#group' => 'naid_tabs',
+          '#open' => TRUE,
         ];
 
         $form['media_gallery'][$naId][$item->{'@id'}] = [
@@ -139,11 +144,14 @@ class NaraImageAdd extends FormBase {
           if ($media_field_data['added'] === 1 && $media_field != $form_state->get('default_link_field')) {
             switch ($media_field_data['field_type']) {
               case 'string':
+                $max_length_description = $this->t('Max Length: @max_length characters.', ['@max_length' => $media_field_data['max_length']]);
                 $form['media_gallery'][$naId][$item->{'@id'}]['non_core'][$media_field] = [
                   '#type' => 'textfield',
                   '#title' => $media_field_data['label'],
                   '#default_value' => $item->description->{$media_field_data['api_field_name']} ?: '',
                   '#required' => FALSE,
+                  '#maxlength' => $media_field_data['max_length'],
+                  '#description' => $media_field_data['show_help'] == 1 ? $media_field_data['description'] : $max_length_description,
                 ];
                 break;
 
@@ -152,7 +160,30 @@ class NaraImageAdd extends FormBase {
                   '#type' => 'url',
                   '#title' => $media_field_data['label'],
                   '#required' => FALSE,
+                  '#description' => $media_field_data['show_help'] == 1 ? $media_field_data['description'] : NULL,
                 ];
+                break;
+
+              case 'integer':
+                $integer_description = $this->t('Prefix: @prefix | Suffix: @suffix', ['@prefix' => $media_field_data['prefix'], '@suffix' => $media_field_data['suffix']]);
+                $form['media_gallery'][$naId][$item->{'@id'}]['non_core'][$media_field] = [
+                  '#type' => 'number',
+                  '#title' => $media_field_data['label'],
+                  '#required' => FALSE,
+                  '#min' => $media_field_data['min'],
+                  '#max' => $media_field_data['max'],
+                  '#description' => $media_field_data['show_help'] == 1 ? $media_field_data['description'] : $integer_description,
+                ];
+                break;
+
+              case 'string_long':
+                $form['media_gallery'][$naId][$item->{'@id'}]['non_core'][$media_field] = [
+                  '#type' => 'textarea',
+                  '#title' => $media_field_data['label'],
+                  '#required' => FALSE,
+                  '#description' => $media_field_data['show_help'] == 1 ? $media_field_data['description'] : NULL,
+                ];
+                break;
             };
           }
         }
@@ -177,8 +208,22 @@ class NaraImageAdd extends FormBase {
    * {@inheritdoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state) {
-    if (isset($form['media_gallery'][0])) {
-      $item_selected = FALSE;
+    $nara_items = $form_state->get('nara_items');
+    if (isset($nara_items)) {
+      $media_gallery = $form_state->getValue('media_gallery');
+      $checked_item = FALSE;
+      foreach ($media_gallery as $key => $value) {
+        foreach ($value as $key2 => $value2) {
+          if (array_key_exists('addMedia', $value2)) {
+            if ($value2['addMedia'] == 1) {
+              $checked_item = TRUE;
+            }
+          }
+        }
+      }
+      if ($checked_item == FALSE) {
+        $form_state->setErrorByName('no_item_checked', $this->t('Please check the items you wish to import.'));
+      }
       // For each possible item created,
       // check through each and see if at least one is checked.
     }

@@ -22,7 +22,6 @@ use Drupal\Core\Entity\ContentEntityInterface;
  *   },
  * )
  */
-
 class NaraObject extends ContentEntityBase implements ContentEntityInterface {
 
   public static function baseFieldDefinitions(EntityTypeInterface $entity_type) {

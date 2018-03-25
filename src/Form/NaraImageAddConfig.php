@@ -66,7 +66,10 @@ class NaraImageAddConfig extends ConfigFormBase {
       if ($fieldData['field_type'] == 'link') {
         $linkOptions[$fieldName] = $fieldData['label'];
       }
-
+      $form['fields'][$fieldName] = [
+        '#type' => 'fieldset',
+        '#title' => $fieldName,
+      ];
       $form['fields'][$fieldName]['added'] = [
         '#type' => 'checkbox',
         '#title' => $fieldData['label'],
@@ -92,6 +95,57 @@ class NaraImageAddConfig extends ConfigFormBase {
         '#title' => $fieldData['field_type'],
         '#value' => $fieldData['field_type'],
       ];
+
+      $form['fields'][$fieldName]['show_help'] = [
+        '#type' => 'checkbox',
+        '#title' => $this->t('Show Help Text from Field Settings'),
+      ];
+
+      $form['fields'][$fieldName]['description'] = [
+        '#type' => 'hidden',
+        '#title' => $this->t('Help Text'),
+        '#value' => $fieldData['description'],
+      ];
+      // Conditional fields based on Field Settings.
+      if ($fieldData['max_length']) {
+        $form['fields'][$fieldName]['max_length'] = [
+          '#type' => 'hidden',
+          '#title' => $this->t('Max Length'),
+          '#value' => $fieldData['max_length'],
+        ];
+      }
+
+      if ($fieldData['min']) {
+        $form['fields'][$fieldName]['min'] = [
+          '#type' => 'hidden',
+          '#title' => $this->t('Number Min'),
+          '#value' => $fieldData['min'],
+        ];
+      }
+
+      if ($fieldData['max']) {
+        $form['fields'][$fieldName]['max'] = [
+          '#type' => 'hidden',
+          '#title' => $this->t('Number Max'),
+          '#value' => $fieldData['max'],
+        ];
+      }
+
+      if ($fieldData['prefix']) {
+        $form['fields'][$fieldName]['prefix'] = [
+          '#type' => 'hidden',
+          '#title' => $this->t('Number Prefix'),
+          '#value' => $fieldData['prefix'],
+        ];
+      }
+
+      if ($fieldData['suffix']) {
+        $form['fields'][$fieldName]['suffix'] = [
+          '#type' => 'hidden',
+          '#title' => $this->t('Number Suffix'),
+          '#value' => $fieldData['suffix'],
+        ];
+      }
     }
 
     if (isset($linkOptions)) {
@@ -123,17 +177,31 @@ class NaraImageAddConfig extends ConfigFormBase {
   private function getFields($entity, $bundle, $configFields) {
     $_fields = $configFields;
     $entityFields = \Drupal::service('entity_field.manager')->getFieldDefinitions($entity, $bundle);
-
     if ($entityFields == NULL || !isset($entityFields)) {
       return NULL;
     }
 
     foreach ($entityFields as $entityField => $entityFieldData) {
       if (strpos($entityField, 'field_') === 0 && $entityField != 'field_media_image') {
+        $fieldStorage = $entityFieldData->getConfig($bundle)->getFieldStorageDefinition();
         if (!array_key_exists($entityField, $_fields)) {
           $_fields[$entityField]['added'] = 0;
           $_fields[$entityField]['label'] = $entityFieldData->getLabel();
           $_fields[$entityField]['field_type'] = $entityFieldData->getType();
+          $_fields[$entityField]['description'] = $entityFieldData->getDescription();
+        }
+
+        // Get custom settings using the following conditionals.
+        // Add them as form fields in the form so they can be saved.
+        if ($fieldStorage->get('type') == 'string') {
+          $_fields[$entityField]['max_length'] = $fieldStorage->getSetting('max_length');
+        }
+
+        if ($fieldStorage->get('type') == 'integer') {
+          $_fields[$entityField]['min'] = $entityFieldData->getSetting('min');
+          $_fields[$entityField]['max'] = $entityFieldData->getSetting('max');
+          $_fields[$entityField]['prefix'] = $entityFieldData->getSetting('prefix');
+          $_fields[$entityField]['suffix'] = $entityFieldData->getSetting('suffix');
         }
       }
     }
