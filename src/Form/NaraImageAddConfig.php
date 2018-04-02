@@ -34,6 +34,7 @@ class NaraImageAddConfig extends ConfigFormBase {
     $formFields = self::getFields('media', 'image', $currentFields);
     $linkOptions = [];
 
+    // Just some of the fields from the API that seemed to match.
     $apiFieldOptions = [
       '' => 'Do not connect',
       'naId' => 'Nara ID',
@@ -62,6 +63,7 @@ class NaraImageAddConfig extends ConfigFormBase {
       '#tree' => TRUE,
     ];
 
+    // Loop through all fields and create the form.
     foreach ($formFields as $fieldName => $fieldData) {
       if ($fieldData['field_type'] == 'link') {
         $linkOptions[$fieldName] = $fieldData['label'];
@@ -148,6 +150,7 @@ class NaraImageAddConfig extends ConfigFormBase {
       }
     }
 
+    // Default Link field is chosen.
     if (isset($linkOptions)) {
       $form['default_link'] = [
         '#type' => 'details',

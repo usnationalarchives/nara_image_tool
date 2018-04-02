@@ -14,7 +14,7 @@ use Drupal\Core\Url;
  *
  * @param array $form
  *   Default form array structure.
- * @param FormStateInterface $form_state
+ * @param Drupal\Core\Form\FormStateInterface $form_state
  *   Object containing current form state.
  */
 class NaraImageAdd extends FormBase {
@@ -55,6 +55,7 @@ class NaraImageAdd extends FormBase {
         '#value' => $this->t('Find Archive Item'),
       ];
     }
+
     $form['media_gallery'] = [
       '#type' => 'container',
       '#prefix' => '<div id="media-gallery-wrapper">',
@@ -129,6 +130,7 @@ class NaraImageAdd extends FormBase {
             '#description' => $this->t('Alt image required for accessibility.'),
             '#required' => FALSE,
           ];
+
           $form['media_gallery'][$naId][$item->{'@id'}]['default_link_uri'] = [
             '#type' => 'url',
             '#default_value' => 'https://catalog.archives.gov/id/' . $naId,
@@ -138,7 +140,8 @@ class NaraImageAdd extends FormBase {
         }
 
         /*
-         * Add Custom fields from Config Settings
+         * Add Custom fields from Config Settings.
+         * Only Textfield, Link, Integer, and TextArea currently.
          */
         foreach ($media_fields as $media_field => $media_field_data) {
           if ($media_field_data['added'] === 1 && $media_field != $form_state->get('default_link_field')) {
@@ -322,12 +325,18 @@ class NaraImageAdd extends FormBase {
 
   /**
    * {@inheritdoc}
+   *
+   * Creates the File and Media entity with the form state.
    */
   private function createImageMedia($item, $itemData, $form_state) {
 
     $non_core_fields = $form_state
       ->getValue(['media_gallery', $item, $itemData->{'@id'}, 'non_core']);
-    if ($form_state->getValue(['media_gallery', $item, $itemData->{'@id'}, 'addMedia']) == 1) {
+    if ($form_state->getValue([
+      'media_gallery',
+      $item, $itemData->{'@id'},
+      'addMedia',
+    ]) == 1) {
       // Create the file in the file system.
       $data = system_retrieve_file($itemData->file->{'@url'}, NULL, TRUE, FILE_EXISTS_REPLACE);
 
@@ -341,19 +350,44 @@ class NaraImageAdd extends FormBase {
         'field_media_image' => [
           'target_id' => $data->id(),
           'alt' => $form_state
-            ->getValue(['media_gallery', $item, $itemData->{'@id'}, 'alt_text']),
+            ->getValue([
+              'media_gallery',
+              $item,
+              $itemData->{'@id'},
+              'alt_text',
+            ]),
           'title' => ($form_state
-            ->getValue(['media_gallery', $item, $itemData->{'@id'}, 'image_title'])) ?:
+            ->getValue([
+              'media_gallery',
+              $item,
+              $itemData->{'@id'},
+              'image_title',
+            ])) ?:
           $form_state
-            ->getValue(['media_gallery', $item, $itemData->{'@id'}, 'media_title']),
+            ->getValue([
+              'media_gallery',
+              $item,
+              $itemData->{'@id'},
+              'media_title',
+            ]),
         ],
       ];
       if ($form_state->get('default_link_field')) {
         $mediaData[$form_state->get('default_link_field')] = [
           'uri' => $form_state
-            ->getValue(['media_gallery', $item, $itemData->{'@id'}, 'default_link_uri']),
+            ->getValue([
+              'media_gallery',
+              $item,
+              $itemData->{'@id'},
+              'default_link_uri',
+            ]),
           'title' => $form_state
-            ->getValue(['media_gallery', $item, $itemData->{'@id'}, 'default_link_title']),
+            ->getValue([
+              'media_gallery',
+              $item,
+              $itemData->{'@id'},
+              'default_link_title',
+            ]),
         ];
       }
       foreach ($non_core_fields as $key => $value) {
@@ -367,6 +401,8 @@ class NaraImageAdd extends FormBase {
 
   /**
    * {@inheritdoc}
+   *
+   * Stores the new object in custom entity for duplication checks.
    */
   private function createNaraObject($item, $itemData, $fid, $mid) {
     $naraObject = [

@@ -24,8 +24,10 @@ use Drupal\Core\Entity\ContentEntityInterface;
  */
 class NaraObject extends ContentEntityBase implements ContentEntityInterface {
 
+  /**
+   * {@inheritdoc}
+   */
   public static function baseFieldDefinitions(EntityTypeInterface $entity_type) {
-
     // Standard field, used as unique if primary index.
     $fields['id'] = BaseFieldDefinition::create('integer')
       ->setLabel(t('ID'))
